@@ -29,6 +29,7 @@ public class MyPlayer implements PokerSquaresPlayer {
     private int[] rankMap = new int[Card.NUM_RANKS];
     private int[] suitMap = new int[Card.NUM_SUITS];
     private List<Set<Integer>> straights = new LinkedList<>();
+    private final int DEPTH = 10;
 
     private Set<Integer> availablePositions = new HashSet<>();
 
@@ -134,9 +135,9 @@ public class MyPlayer implements PokerSquaresPlayer {
                 // Simulation part
                 long timeRemaining = millisRemaining - (System.currentTimeMillis() - starttime);
                 long millisPerPlay = timeRemaining / (NUM_POS - numPlays - 1);
-                long millisPerPosition = millisPerPlay / 5;
+                long millisPerPosition = millisPerPlay / 12;
                 long simEndTime;
-                int simPlay = pq.size() > 5 ? 5 : pq.size();
+                int simPlay = pq.size() > 12 ? 12 : pq.size();
                 int totalPoints,
                  totalSims;
                 Set<Integer> greedyAvailablePositions;
@@ -421,7 +422,8 @@ public class MyPlayer implements PokerSquaresPlayer {
         int[] undoTrack = new int[remainingPlays];
         int maxScore = Integer.MIN_VALUE;
         List<Card> deck = Arrays.asList(simDeck).stream().filter(c -> c != null).collect(Collectors.toList());
-        for (int i = 0; i < remainingPlays; i++) {
+        int depth = remainingPlays > DEPTH ? DEPTH : remainingPlays;
+        for (int i = 0; i < depth; i++) {
             int randomIndex = random.nextInt(deck.size());
             Card card = deck.get(randomIndex);
             bestPlays.clear();
@@ -453,7 +455,7 @@ public class MyPlayer implements PokerSquaresPlayer {
 
         int finalScore = system.getScore(grid);
 
-        for (int i = 0; i < remainingPlays; i++) {
+        for (int i = 0; i < depth; i++) {
             grid[undoTrack[i] / SIZE][undoTrack[i] % SIZE] = null;
         }
 
