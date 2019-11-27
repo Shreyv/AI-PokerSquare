@@ -277,6 +277,10 @@ public class PokerSquares {
 
 
                 PokerSquares.playTournament(players, systems, 10, 0L);  // play 10 games for each player under each scoring system
-	       // PokerSquares.playTournament(players, systems, 20, 0L);  // play 10 games for each player under each scoring system
+	       //PokerSquares.playTournament(players, systems, 20, 0L);  // play 10 games for each player under each scoring syste
+               //PokerSquares.playTournament(players, systems, 30, 0L);  // play 10 games for each player under each scoring system
+               //PokerSquares.playTournament(players, systems, 60, 0L);  // play 10 games for each player under each scoring system
+               //PokerSquares.playTournament(players, systems, 100, 0L);  // play 10 games for each player under each scoring system
+
         }
 }
