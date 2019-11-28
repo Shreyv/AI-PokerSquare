@@ -29,8 +29,8 @@ public class MyPlayer implements PokerSquaresPlayer {
     private int[] rankMap = new int[Card.NUM_RANKS];
     private int[] suitMap = new int[Card.NUM_SUITS];
     private List<Set<Integer>> straights = new LinkedList<>();
-    private final int DEPTH = 7;
-    private final int PRIORITY_COUNT = 10;
+    private final int DEPTH = 10;
+    private final int PRIORITY_COUNT = 8;
 
     private Set<Integer> availablePositions = new HashSet<>();
 
@@ -83,6 +83,7 @@ public class MyPlayer implements PokerSquaresPlayer {
 
     @Override
     public int[] getPlay(Card card, long millisRemaining) {
+        millisRemaining -= 1;
         long starttime = System.currentTimeMillis();
         int rowColPosition = 0, row = 0, col = 0, rowEmptyCount, colEmptyCount;
         rankMap[card.getRank()]--;
@@ -134,16 +135,15 @@ public class MyPlayer implements PokerSquaresPlayer {
                 }
 
                 // Simulation part
-                long timeRemaining = millisRemaining - (System.currentTimeMillis() - starttime);
-                long millisPerPlay = timeRemaining / (NUM_POS - numPlays - 1);
                 long simEndTime;
                 int simPlay = pq.size() > PRIORITY_COUNT ? PRIORITY_COUNT : pq.size();
-                long millisPerPosition = millisPerPlay / simPlay;
-
                 int totalPoints,
                  totalSims;
                 Set<Integer> greedyAvailablePositions;
-
+                long timeRemaining = millisRemaining - (System.currentTimeMillis() - starttime);
+                long millisPerPlay = timeRemaining / (NUM_POS - numPlays - 1);
+                long millisPerPosition = millisPerPlay / simPlay;
+                
                 while (simPlay > 0) {
                     totalPoints = 0;
                     totalSims = 0;
@@ -159,7 +159,7 @@ public class MyPlayer implements PokerSquaresPlayer {
                     }
 
                     //undoing
-                    grid[priorityPos / SIZE][priorityPos % SIZE] = card;
+                    grid[priorityPos / SIZE][priorityPos % SIZE] = null;
 
                     double averageScore = (double) totalPoints / totalSims;
 
@@ -236,7 +236,7 @@ public class MyPlayer implements PokerSquaresPlayer {
                     break;
                 case 2:
                     int pairsPossible = 0,
-                    triplets = 0;
+                     triplets = 0;
                     for (int r : ranks) {
                         if (rankMap[r] == 1) {
                             pairsPossible++;
