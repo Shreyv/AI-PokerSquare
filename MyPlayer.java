@@ -29,7 +29,8 @@ public class MyPlayer implements PokerSquaresPlayer {
     private int[] rankMap = new int[Card.NUM_RANKS];
     private int[] suitMap = new int[Card.NUM_SUITS];
     private List<Set<Integer>> straights = new LinkedList<>();
-    private final int DEPTH = 10;
+    private final int DEPTH = 7;
+    private final int PRIORITY_COUNT = 10;
 
     private Set<Integer> availablePositions = new HashSet<>();
 
@@ -97,7 +98,7 @@ public class MyPlayer implements PokerSquaresPlayer {
                 rowColPosition = availablePositions.iterator().next();
                 break;
             default:
-                int maxPoints = Integer.MIN_VALUE;
+                double maxPoints = Double.NEGATIVE_INFINITY;
                 PriorityQueue<Position> pq = new PriorityQueue(new PositionComparator());
                 for (int pos : availablePositions) {
                     rowEmptyCount = 0;
@@ -135,9 +136,10 @@ public class MyPlayer implements PokerSquaresPlayer {
                 // Simulation part
                 long timeRemaining = millisRemaining - (System.currentTimeMillis() - starttime);
                 long millisPerPlay = timeRemaining / (NUM_POS - numPlays - 1);
-                long millisPerPosition = millisPerPlay / 12;
                 long simEndTime;
-                int simPlay = pq.size() > 12 ? 12 : pq.size();
+                int simPlay = pq.size() > PRIORITY_COUNT ? PRIORITY_COUNT : pq.size();
+                long millisPerPosition = millisPerPlay / simPlay;
+
                 int totalPoints,
                  totalSims;
                 Set<Integer> greedyAvailablePositions;
@@ -159,7 +161,7 @@ public class MyPlayer implements PokerSquaresPlayer {
                     //undoing
                     grid[priorityPos / SIZE][priorityPos % SIZE] = card;
 
-                    int averageScore = totalPoints / totalSims;
+                    double averageScore = (double) totalPoints / totalSims;
 
                     if (averageScore > maxPoints) {
                         maxPoints = basePoints + averageScore;
@@ -234,7 +236,7 @@ public class MyPlayer implements PokerSquaresPlayer {
                     break;
                 case 2:
                     int pairsPossible = 0,
-                     triplets = 0;
+                    triplets = 0;
                     for (int r : ranks) {
                         if (rankMap[r] == 1) {
                             pairsPossible++;
@@ -524,13 +526,14 @@ class PositionComparator implements Comparator<Position> {
     @Override
     public int compare(Position p1, Position p2) {
         if (p2.getTotalPoints() - p1.getTotalPoints() == 0) {
-            if (p1.getBasePoints() - p2.getBasePoints() == 0){
-            
-                return new Random().nextBoolean() == true ? 1 : -1;
+            if (p1.getBasePoints() - p2.getBasePoints() == 0) {
+                if (p2.getEmptyCount() - p1.getEmptyCount() == 0) {
+                    return new Random().nextBoolean() == true ? 1 : -1;
+                }
+                return p1.getEmptyCount() - p2.getEmptyCount();
             }
-            return p2.getBasePoints() - p1.getBasePoints();  
-            }
-                    
+            return p2.getBasePoints() - p1.getBasePoints();
+        }
         return p2.getTotalPoints() - p1.getTotalPoints();
     }
 }
