@@ -5,3 +5,4 @@ PokerHand.java
 PokerSquaresPlayer.java
 PokerSquaresPointSystem.java
 RandomPlayer.java
+*.class
