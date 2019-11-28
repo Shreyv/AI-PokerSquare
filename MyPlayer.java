@@ -10,6 +10,7 @@ import java.util.PriorityQueue;
 import java.util.Random;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 /*
  *
@@ -30,7 +31,7 @@ public class MyPlayer implements PokerSquaresPlayer {
     private int[] suitMap = new int[Card.NUM_SUITS];
     private List<Set<Integer>> straights = new LinkedList<>();
     private final int DEPTH = 10;
-    private final int PRIORITY_COUNT = 8;
+    private final int PRIORITY_COUNT = 5;
 
     private Set<Integer> availablePositions = new HashSet<>();
 
@@ -143,7 +144,7 @@ public class MyPlayer implements PokerSquaresPlayer {
                 long timeRemaining = millisRemaining - (System.currentTimeMillis() - starttime);
                 long millisPerPlay = timeRemaining / (NUM_POS - numPlays - 1);
                 long millisPerPosition = millisPerPlay / simPlay;
-                
+
                 while (simPlay > 0) {
                     totalPoints = 0;
                     totalSims = 0;
@@ -214,18 +215,36 @@ public class MyPlayer implements PokerSquaresPlayer {
         if (basePoints == system.getHandScore(PokerHand.HIGH_CARD)) {
             possiblePoints += system.getHandScore(PokerHand.ONE_PAIR);
             hands += 1;
+            boolean isThreePossible = false;
             switch (emptyCount) {
                 case 4:
+                    int singleElement = ranks.iterator().next();
                     possiblePoints += system.getHandScore(PokerHand.TWO_PAIR);
-                    possiblePoints += system.getHandScore(PokerHand.THREE_OF_A_KIND);
-                    possiblePoints += system.getHandScore(PokerHand.FOUR_OF_A_KIND);
-                    possiblePoints += system.getHandScore(PokerHand.FULL_HOUSE);
-                    hands += 4;
+                    //modification of condition
+                    if (rankMap[singleElement] >= 2 || isThreeOfAKindPossible()) {
+                        possiblePoints += system.getHandScore(PokerHand.THREE_OF_A_KIND);
+                        isThreePossible = true;
+                        hands += 1;
+                    }
+                    if (rankMap[singleElement] == 3) {
+                        possiblePoints += system.getHandScore(PokerHand.FOUR_OF_A_KIND);
+                        hands += 1;
+                    }
+
+                    if (isThreePossible) {
+                        possiblePoints += system.getHandScore(PokerHand.FULL_HOUSE);
+                        hands += 1;
+                    }
+
                     break;
                 case 3:
                     possiblePoints += system.getHandScore(PokerHand.TWO_PAIR);
-                    possiblePoints += system.getHandScore(PokerHand.THREE_OF_A_KIND);
-                    hands += 2;
+                    hands += 1;
+                    if (isThreeOfAKindPossible()) {
+                        possiblePoints += system.getHandScore(PokerHand.THREE_OF_A_KIND);
+                        hands += 1;
+
+                    }
                     for (int r : ranks) {
                         if (rankMap[r] > 1) {
                             possiblePoints += system.getHandScore(PokerHand.FULL_HOUSE);
@@ -260,13 +279,16 @@ public class MyPlayer implements PokerSquaresPlayer {
         } else if (basePoints == system.getHandScore(PokerHand.ONE_PAIR)) {
             switch (emptyCount) {
                 case 3:
-                    possiblePoints += system.getHandScore(PokerHand.FULL_HOUSE);
+                    if (isThreeOfAKindPossible()) {
+                        possiblePoints += system.getHandScore(PokerHand.FULL_HOUSE);
+                        hands += 1;
+                    }
                     possiblePoints += system.getHandScore(PokerHand.TWO_PAIR);
-                    hands += 2;
+                    hands += 1;
                     if (rankMap[ranks.iterator().next()] == 2) {
                         possiblePoints += system.getHandScore(PokerHand.FOUR_OF_A_KIND);
                         hands += 1;
-                    } else if (rankMap[ranks.iterator().next()] == 1) {
+                    } else if (rankMap[ranks.iterator().next()] == 1 || isThreeOfAKindPossible()) {
                         possiblePoints += system.getHandScore(PokerHand.THREE_OF_A_KIND);
                         hands += 1;
                     }
@@ -416,6 +438,10 @@ public class MyPlayer implements PokerSquaresPlayer {
 
         return true;
 
+    }
+
+    public boolean isThreeOfAKindPossible() {
+       return IntStream.of(rankMap).anyMatch(x -> x >= 3);
     }
 
     public int simGreedyPlay(int position, Set<Integer> availablePositions) {
