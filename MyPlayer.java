@@ -12,28 +12,22 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-/*
- *
- * @author shrey
- */
 public class MyPlayer implements PokerSquaresPlayer {
 
-    private final int SIZE = 5;
-    private final int NUM_POS = SIZE * SIZE;
-    private final int NUM_CARDS = Card.NUM_CARDS;
-    private Random random = new Random();
-    private int[] plays = new int[NUM_POS];
-    private int numPlays = 0;
+    private final int SIZE = 5; // row or col size of the grid
+    private final int NUM_POS = SIZE * SIZE; // grid size or number of positions available
+    private Random random = new Random(); // random generator
+    private int numPlays = 0; // cards placed in the grid
     private PokerSquaresPointSystem system;
-    private Card[][] grid = new Card[SIZE][SIZE];
-    private Card[] simDeck = Card.getAllCards();
-    private int[] rankMap = new int[Card.NUM_RANKS];
-    private int[] suitMap = new int[Card.NUM_SUITS];
-    private List<Set<Integer>> straights = new LinkedList<>();
-    private final int DEPTH = 10;
-    private final int PRIORITY_COUNT = 5;
+    private Card[][] grid = new Card[SIZE][SIZE]; //  grid for placing cards
+    private Card[] simDeck = Card.getAllCards(); // deck of all cards
+    private int[] rankMap = new int[Card.NUM_RANKS]; // cards available for a particular rank
+    private int[] suitMap = new int[Card.NUM_SUITS]; // cards available for a particular suit
+    private List<Set<Integer>> straights = new LinkedList<>(); // pre computed all possible straights
+    private final int DEPTH = 10; // Depth for MC simulations
+    private final int PRIORITY_COUNT = 5; // number of elements to be selected from priority queue
 
-    private Set<Integer> availablePositions = new HashSet<>();
+    private Set<Integer> availablePositions = new HashSet<>(); // track of available positions
 
     @Override
     public void setPointSystem(PokerSquaresPointSystem system, long millis) {
@@ -42,8 +36,8 @@ public class MyPlayer implements PokerSquaresPlayer {
 
     @Override
     public void init() {
-        simDeck = Card.getAllCards();
-        // clear grid
+        simDeck = Card.getAllCards(); // initializing sim deck before starting new game
+        // clearing grid
         for (int row = 0; row < SIZE; row++) {
             for (int col = 0; col < SIZE; col++) {
                 grid[row][col] = null;
@@ -51,17 +45,16 @@ public class MyPlayer implements PokerSquaresPlayer {
         }
         // reset numPlays
         numPlays = 0;
-        // (re)initialize list of play positions (row-major ordering)
+        // (re)initialize available positions
         for (int i = 0; i < NUM_POS; i++) {
-            plays[i] = i;
             availablePositions.add(i);
         }
 
         for (int i = 0; i < Card.NUM_RANKS; i++) {
-            rankMap[i] = 4;
+            rankMap[i] = 4; // reseting every count of rank to 4
             if (i < Card.NUM_RANKS - 3) {
                 Set<Integer> straight = new HashSet<>();
-
+                // adding combination of the straight 10,J,Q,K,A
                 if (i == 9) {
                     for (int j = i; j < i + 4; j++) {
                         straight.add(j);
@@ -69,7 +62,7 @@ public class MyPlayer implements PokerSquaresPlayer {
                     straight.add(0);
                 } else {
                     for (int j = i; j < i + 5; j++) {
-                        straight.add(j);
+                        straight.add(j); // adding all other straights
                     }
                 }
                 straights.add(straight);
@@ -77,11 +70,20 @@ public class MyPlayer implements PokerSquaresPlayer {
         }
 
         for (int i = 0; i < Card.NUM_SUITS; i++) {
-            suitMap[i] = 13;
+            suitMap[i] = 13; // reseting every count of suit to 13
         }
 
     }
 
+    /**
+     * Returns the position of the card to be placed. It runs Greedy MC
+     * simulations and returns the row and col position of the card to be
+     * placed.
+     *
+     * @param card
+     * @param millisRemaining
+     * @return
+     */
     @Override
     public int[] getPlay(Card card, long millisRemaining) {
         millisRemaining -= 1;
@@ -93,14 +95,17 @@ public class MyPlayer implements PokerSquaresPlayer {
         List<Integer> bestPlays = new ArrayList<>();
 
         switch (numPlays) {
+            // random selection for first card
             case 0:
                 rowColPosition = random.nextInt(NUM_POS);
                 break;
+            // forced placement for the last position     
             case NUM_POS - 1:
                 rowColPosition = availablePositions.iterator().next();
                 break;
             default:
                 double maxPoints = Double.NEGATIVE_INFINITY;
+                // Priority queue for adding postions
                 PriorityQueue<Position> pq = new PriorityQueue(new PositionComparator());
                 for (int pos : availablePositions) {
                     rowEmptyCount = 0;
@@ -122,67 +127,80 @@ public class MyPlayer implements PokerSquaresPlayer {
 
                     }
 
+                    // storing base points of row and column
                     int basePoints = 0;
+                    // row base points
                     int rowPoints = system.getHandScore(rowCheck);
                     basePoints += rowPoints;
+                    // checking possible points of row if only row is not full after placing card
                     rowPoints += (rowEmptyCount > 0) ? checkPoints(rowCheck, rowEmptyCount, rowPoints) : 0;
+                    // col base points
                     int colPoints = system.getHandScore(colCheck);
                     basePoints += colPoints;
+                    // checking possible points of column if only column is not full after placing card
                     colPoints += (colEmptyCount > 0) ? checkPoints(colCheck, colEmptyCount, colPoints) : 0;
 
+                    // adding position into priority queue
                     pq.add(new Position(pos, basePoints, rowPoints + colPoints, rowEmptyCount + colEmptyCount));
 
+                    // undoing grid position to null after calcualting possible scores
                     grid[row][col] = null;
                 }
 
                 // Simulation part
                 long simEndTime;
+                // getting count of sim plays if less than limit perform on all positions
                 int simPlay = pq.size() > PRIORITY_COUNT ? PRIORITY_COUNT : pq.size();
                 int totalPoints,
                  totalSims;
-                Set<Integer> greedyAvailablePositions;
-                long timeRemaining = millisRemaining - (System.currentTimeMillis() - starttime);
-                long millisPerPlay = timeRemaining / (NUM_POS - numPlays - 1);
-                long millisPerPosition = millisPerPlay / simPlay;
+                Set<Integer> greedyAvailablePositions; // available postions for the simulations
+                long timeRemaining = millisRemaining - (System.currentTimeMillis() - starttime); // remaining time for simulations
+                long millisPerPlay = timeRemaining / (NUM_POS - numPlays - 1); // remaining time per play 
+                long millisPerPosition = millisPerPlay / simPlay; // time allocated per position
 
                 while (simPlay > 0) {
                     totalPoints = 0;
                     totalSims = 0;
-                    int priorityPos = pq.poll().getPosition();
+                    int priorityPos = pq.poll().getPosition(); // getting higher priority position
                     greedyAvailablePositions = new HashSet<>(availablePositions);
-                    greedyAvailablePositions.remove(priorityPos);
-                    grid[priorityPos / SIZE][priorityPos % SIZE] = card;
-                    int basePoints = system.getScore(grid);
-                    simEndTime = System.currentTimeMillis() + millisPerPosition;
+                    greedyAvailablePositions.remove(priorityPos); // removing element from available positions
+                    grid[priorityPos / SIZE][priorityPos % SIZE] = card; // placing card to grid
+                    int basePoints = system.getScore(grid); // getting score of the partial filled grid
+                    simEndTime = System.currentTimeMillis() + millisPerPosition; // calculating ending time 
                     while (System.currentTimeMillis() < simEndTime) {
-                        totalPoints += simGreedyPlay(priorityPos, greedyAvailablePositions);
+                        totalPoints += simGreedyPlay(priorityPos, greedyAvailablePositions); // running simulations
                         totalSims++;
                     }
 
                     //undoing
                     grid[priorityPos / SIZE][priorityPos % SIZE] = null;
 
+                    //averaging all simulation score
                     double averageScore = (double) totalPoints / totalSims;
 
+                    // storing position with max score
                     if (averageScore > maxPoints) {
                         maxPoints = basePoints + averageScore;
                         bestPlays.clear();
                         bestPlays.add(priorityPos);
                     } else if (averageScore == maxPoints) {
-                        bestPlays.add(priorityPos);
+                        bestPlays.add(priorityPos); // adding to set of best plays
                     }
 
                     simPlay--;
                 }
 
+                // getting best position ( breaking the tie randomly)
                 rowColPosition = bestPlays.get(random.nextInt(bestPlays.size()));
                 break;
         }
 
+        // removing the position from the available
         availablePositions.remove(rowColPosition);
-        numPlays++;
+        numPlays++; // incrementing cards placed
+        // position of the card to be returned
         int[] playPos = {rowColPosition / SIZE, rowColPosition % SIZE};
-        grid[playPos[0]][playPos[1]] = card;
+        grid[playPos[0]][playPos[1]] = card; // card placed in grid
 
         return playPos;
     }
@@ -192,12 +210,21 @@ public class MyPlayer implements PokerSquaresPlayer {
         return "MyPlayer";
     }
 
+    /**
+     * Utility function to check the possible points by giving partial rows or cols, along with emptycount and 
+     * its base points
+     * @param list
+     * @param emptyCount
+     * @param basePoints
+     * @return
+     */
     public int checkPoints(Card[] list, int emptyCount, int basePoints) {
-        Set<Integer> ranks = new HashSet<>();
-        Set<Integer> suits = new HashSet<>();
+        Set<Integer> ranks = new HashSet<>(); // to store unique ranks
+        Set<Integer> suits = new HashSet<>(); // to store unique suits
+        // storing count of each rank card list
         Map<Integer, Long> rankCount = Arrays.asList(list).stream().filter(c -> c != null).
-                collect(Collectors.groupingBy(Card -> Card.getRank(), Collectors.counting()));
-        int minRank = Integer.MAX_VALUE;
+                collect(Collectors.groupingBy(Card -> Card.getRank(), Collectors.counting())); 
+        int minRank = Integer.MAX_VALUE; // used to track min of the given cards (for royal flush check)
         for (Card c : list) {
             if (c == null) {
                 continue;
@@ -212,10 +239,12 @@ public class MyPlayer implements PokerSquaresPlayer {
         int possiblePoints = 0;
         int hands = 0;
 
+        // if there are no points
         if (basePoints == system.getHandScore(PokerHand.HIGH_CARD)) {
             possiblePoints += system.getHandScore(PokerHand.ONE_PAIR);
             hands += 1;
             boolean isThreePossible = false;
+            // possible hands based on empty positions
             switch (emptyCount) {
                 case 4:
                     int singleElement = ranks.iterator().next();
@@ -276,6 +305,7 @@ public class MyPlayer implements PokerSquaresPlayer {
                     break;
             }
 
+         // if it already has one pair   
         } else if (basePoints == system.getHandScore(PokerHand.ONE_PAIR)) {
             switch (emptyCount) {
                 case 3:
@@ -336,6 +366,7 @@ public class MyPlayer implements PokerSquaresPlayer {
                     break;
                 }
             }
+          // if it already has two pairs  
         } else if (basePoints == system.getHandScore(PokerHand.TWO_PAIR)) {
             for (int r : ranks) {
                 if (rankMap[r] >= 1) {
@@ -344,6 +375,7 @@ public class MyPlayer implements PokerSquaresPlayer {
                 }
             }
 
+         // if list contains a three of a kind   
         } else if (basePoints == system.getHandScore(PokerHand.THREE_OF_A_KIND)) {
             int tripletElement = 0, singleElement = -1;
             for (Map.Entry<Integer, Long> entry : rankCount.entrySet()) {
@@ -366,13 +398,15 @@ public class MyPlayer implements PokerSquaresPlayer {
 
         }
 
+        // if there is only one type of suit in the given list
+        // this shows chances for flush , straight flush and royal flush
         if (suits.size() == 1) {
 
             // then 1st check flush possible
             if (suitMap[suits.iterator().next()] >= emptyCount) {
                 possiblePoints += system.getHandScore(PokerHand.FLUSH);
                 hands += 1;
-
+                // if flush possible then check for straight flush
                 if (checkStraight(suits, true, ranks)) {
                     possiblePoints += system.getHandScore(PokerHand.STRAIGHT_FLUSH);
                     hands += 1;
@@ -386,14 +420,17 @@ public class MyPlayer implements PokerSquaresPlayer {
             }
         }
 
+        // checking straight only
         if (checkStraight(suits, false, ranks)) {
             possiblePoints += system.getHandScore(PokerHand.STRAIGHT);
             hands += 1;
         }
 
+        // returning average hand score or 0 if no hands
         return hands != 0 ? possiblePoints / hands : 0;
     }
 
+    // utility function to check straights
     public boolean checkStraight(Set<Integer> suits, boolean isFlush, Set<Integer> ranks) {
         Set<Integer> temp;
         for (Set<Integer> straight : straights) {
@@ -426,6 +463,7 @@ public class MyPlayer implements PokerSquaresPlayer {
         return false;
     }
 
+    // utility function to check royal flush
     public boolean checkRoyalFlush(int suit, Set<Integer> ranks) {
         if (!ranks.contains(0) && simDeck[(suit * Card.NUM_RANKS) + 0] == null) {
             return false;
@@ -441,16 +479,17 @@ public class MyPlayer implements PokerSquaresPlayer {
     }
 
     public boolean isThreeOfAKindPossible() {
-       return IntStream.of(rankMap).anyMatch(x -> x >= 3);
+        return IntStream.of(rankMap).anyMatch(x -> x >= 3);
     }
 
+    //simulation part
     public int simGreedyPlay(int position, Set<Integer> availablePositions) {
         int remainingPlays = availablePositions.size(), col = 0, row = 0;
         List<Integer> bestPlays = new ArrayList<>();
-        int[] undoTrack = new int[remainingPlays];
+        int[] undoTrack = new int[remainingPlays]; // storing positions to perform undoing after simulations
         int maxScore = Integer.MIN_VALUE;
         List<Card> deck = Arrays.asList(simDeck).stream().filter(c -> c != null).collect(Collectors.toList());
-        int depth = remainingPlays > DEPTH ? DEPTH : remainingPlays;
+        int depth = remainingPlays > DEPTH ? DEPTH : remainingPlays; // setting depth if remaining plays are greater than limit
         for (int i = 0; i < depth; i++) {
             int randomIndex = random.nextInt(deck.size());
             Card card = deck.get(randomIndex);
@@ -481,8 +520,9 @@ public class MyPlayer implements PokerSquaresPlayer {
 
         }
 
-        int finalScore = system.getScore(grid);
+        int finalScore = system.getScore(grid); // getting final score of grid
 
+        //performing undoing
         for (int i = 0; i < depth; i++) {
             grid[undoTrack[i] / SIZE][undoTrack[i] % SIZE] = null;
         }
@@ -499,6 +539,9 @@ public class MyPlayer implements PokerSquaresPlayer {
 
 }
 
+/**
+ * To store position details 
+ */
 class Position {
 
     private int position;
@@ -547,6 +590,8 @@ class Position {
     }
 }
 
+// comparator used to sort the positions based on the totalpoints, basepoints and emptycounts
+// ties are solved randomly
 class PositionComparator implements Comparator<Position> {
 
     @Override
