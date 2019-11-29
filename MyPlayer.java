@@ -25,7 +25,7 @@ public class MyPlayer implements PokerSquaresPlayer {
     private int[] suitMap = new int[Card.NUM_SUITS]; // cards available for a particular suit
     private List<Set<Integer>> straights = new LinkedList<>(); // pre computed all possible straights
     private final int DEPTH = 10; // Depth for MC simulations
-    private final int PRIORITY_COUNT = 5; // number of elements to be selected from priority queue
+    private final int PRIORITY_COUNT = 8; // number of elements to be selected from priority queue
 
     private Set<Integer> availablePositions = new HashSet<>(); // track of available positions
 
